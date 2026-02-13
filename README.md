@@ -11,9 +11,12 @@ Simple Vite + React admin SPA for editing `site.i18n.ru` and `site.i18n.uz` valu
 - Save per key (`PATCH /site` for both RU/UZ when changed).
 - Save All changed fields sequentially.
 - Search by path or value.
-- Simplified flat list of all keys for faster editing.
+- Uzbek interface labels for client-friendly editing.
+- Key selector (`select`) to edit one key at a time in a simple flow.
 
 ## API contract
+
+- Only key values are edited and sent in `value`; key paths are never renamed.
 
 - `GET {VITE_API_BASE}/site` -> `{ site: { i18n: { ru: {...}, uz: {...} } } }`
 - `PATCH {VITE_API_BASE}/site` with body:
