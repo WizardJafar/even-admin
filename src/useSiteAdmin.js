@@ -5,40 +5,83 @@ const API_BASE = import.meta.env.VITE_API_BASE || 'http://localhost:5050'
 const isPlainObject = (value) =>
   typeof value === 'object' && value !== null && !Array.isArray(value)
 
-const flattenStrings = (value, path = '', result = {}) => {
-  if (typeof value === 'string') {
-    result[path] = value
+const getValueType = (value) => {
+  if (value === null) return 'null'
+  if (typeof value === 'boolean') return 'boolean'
+  if (typeof value === 'number') return 'number'
+  return 'string'
+}
+
+const toEditableString = (value) => {
+  if (value === null || value === undefined) return ''
+  return String(value)
+}
+
+const parseByType = (value, type) => {
+  if (type === 'number') {
+    const parsed = Number(value)
+    if (Number.isNaN(parsed)) {
+      throw new Error('Expected a number value')
+    }
+    return parsed
+  }
+
+  if (type === 'boolean') {
+    const normalized = value.trim().toLowerCase()
+    if (normalized === 'true' || normalized === '1') return true
+    if (normalized === 'false' || normalized === '0') return false
+    throw new Error('Expected boolean: true/false')
+  }
+
+  if (type === 'null') {
+    if (!value.trim() || value.trim().toLowerCase() === 'null') return null
+    return value
+  }
+
+  return value
+}
+
+const flattenEditableLeaves = (value, path = '', result = {}) => {
+  const valueType = getValueType(value)
+
+  if (valueType !== 'string' && valueType !== 'number' && valueType !== 'boolean' && valueType !== 'null') {
+    if (Array.isArray(value)) {
+      value.forEach((item, index) => {
+        const nextPath = path ? `${path}.${index}` : `${index}`
+        flattenEditableLeaves(item, nextPath, result)
+      })
+      return result
+    }
+
+    if (isPlainObject(value)) {
+      Object.entries(value).forEach(([key, nestedValue]) => {
+        const nextPath = path ? `${path}.${key}` : key
+        flattenEditableLeaves(nestedValue, nextPath, result)
+      })
+    }
+
     return result
   }
 
-  if (Array.isArray(value)) {
-    value.forEach((item, index) => {
-      const nextPath = path ? `${path}.${index}` : `${index}`
-      flattenStrings(item, nextPath, result)
-    })
-    return result
-  }
-
-  if (isPlainObject(value)) {
-    Object.entries(value).forEach(([key, nestedValue]) => {
-      const nextPath = path ? `${path}.${key}` : key
-      flattenStrings(nestedValue, nextPath, result)
-    })
-  }
-
+  result[path] = { raw: value, type: valueType, text: toEditableString(value) }
   return result
 }
 
 const buildInitialFields = (ru = {}, uz = {}) => {
-  const ruFlat = flattenStrings(ru)
-  const uzFlat = flattenStrings(uz)
+  const ruFlat = flattenEditableLeaves(ru)
+  const uzFlat = flattenEditableLeaves(uz)
   const allPaths = Array.from(new Set([...Object.keys(ruFlat), ...Object.keys(uzFlat)])).sort()
 
   return allPaths.reduce((acc, path) => {
+    const ruEntry = ruFlat[path] ?? { raw: '', type: 'string', text: '' }
+    const uzEntry = uzFlat[path] ?? { raw: '', type: 'string', text: '' }
+
     acc[path] = {
-      ru: ruFlat[path] ?? '',
-      uz: uzFlat[path] ?? '',
-      saved: { ru: ruFlat[path] ?? '', uz: uzFlat[path] ?? '' },
+      ru: ruEntry.text,
+      uz: uzEntry.text,
+      ruType: ruEntry.type,
+      uzType: uzEntry.type,
+      saved: { ru: ruEntry.text, uz: uzEntry.text },
       status: 'idle',
       error: '',
     }
@@ -125,10 +168,10 @@ export const useSiteAdmin = () => {
 
       try {
         if (currentField.ru !== currentField.saved.ru) {
-          await saveLangValue('ru', path, currentField.ru)
+          await saveLangValue('ru', path, parseByType(currentField.ru, currentField.ruType))
         }
         if (currentField.uz !== currentField.saved.uz) {
-          await saveLangValue('uz', path, currentField.uz)
+          await saveLangValue('uz', path, parseByType(currentField.uz, currentField.uzType))
         }
 
         setFields((prev) => ({

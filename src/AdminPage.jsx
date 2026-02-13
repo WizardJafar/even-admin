@@ -3,22 +3,8 @@ import { useSiteAdmin } from './useSiteAdmin'
 
 const shouldUseTextarea = (value) => value.includes('\n') || value.length > 80
 
-const groupByFirstSegment = (paths) => {
-  const grouped = {}
-
-  paths.forEach((path) => {
-    const firstSegment = path.split('.')[0] || 'other'
-    if (!grouped[firstSegment]) {
-      grouped[firstSegment] = []
-    }
-    grouped[firstSegment].push(path)
-  })
-
-  return Object.entries(grouped).sort(([a], [b]) => a.localeCompare(b))
-}
-
 function FieldEditor({ path, field, onChange, onSave, disabled, dirty }) {
-  const Component = shouldUseTextarea(field.ru) || shouldUseTextarea(field.uz) ? 'textarea' : 'input'
+  const useTextarea = shouldUseTextarea(field.ru) || shouldUseTextarea(field.uz)
 
   return (
     <article className="field-card">
@@ -31,21 +17,21 @@ function FieldEditor({ path, field, onChange, onSave, disabled, dirty }) {
 
       <div className="field-grid">
         <label>
-          <span>RU</span>
-          <Component
-            value={field.ru}
-            onChange={(event) => onChange(path, 'ru', event.target.value)}
-            rows={Component === 'textarea' ? 3 : undefined}
-          />
+          <span>RU ({field.ruType})</span>
+          {useTextarea ? (
+            <textarea value={field.ru} rows={3} onChange={(event) => onChange(path, 'ru', event.target.value)} />
+          ) : (
+            <input value={field.ru} onChange={(event) => onChange(path, 'ru', event.target.value)} />
+          )}
         </label>
 
         <label>
-          <span>UZ</span>
-          <Component
-            value={field.uz}
-            onChange={(event) => onChange(path, 'uz', event.target.value)}
-            rows={Component === 'textarea' ? 3 : undefined}
-          />
+          <span>UZ ({field.uzType})</span>
+          {useTextarea ? (
+            <textarea value={field.uz} rows={3} onChange={(event) => onChange(path, 'uz', event.target.value)} />
+          ) : (
+            <input value={field.uz} onChange={(event) => onChange(path, 'uz', event.target.value)} />
+          )}
         </label>
       </div>
 
@@ -87,13 +73,12 @@ export default function AdminPage() {
     })
   }, [fields, search])
 
-  const groupedFields = useMemo(() => groupByFirstSegment(filteredPaths), [filteredPaths])
-
   return (
     <main className="admin-page">
       <header>
         <h1>Site i18n Admin</h1>
         <p>API: {apiBase}</p>
+        <p>Каждый ключ ниже редактируется отдельно (RU и UZ).</p>
       </header>
 
       <section className="toolbar">
@@ -115,30 +100,26 @@ export default function AdminPage() {
       {loadError && <p className="error-text">{loadError}</p>}
       {globalMessage && <p className="success-text">{globalMessage}</p>}
 
-      {!isLoading && !loadError && groupedFields.length === 0 && <p>No fields found.</p>}
+      {!isLoading && !loadError && filteredPaths.length === 0 && <p>No fields found.</p>}
 
-      {!isLoading && !loadError &&
-        groupedFields.map(([groupName, paths]) => (
-          <section key={groupName} className="group-section">
-            <h2>
-              {groupName} <small>({paths.length})</small>
-            </h2>
-
-            <div className="group-content">
-              {paths.map((path) => (
-                <FieldEditor
-                  key={path}
-                  path={path}
-                  field={fields[path]}
-                  onChange={updateValue}
-                  onSave={() => saveField(path)}
-                  disabled={isSavingAll}
-                  dirty={isDirty(fields[path])}
-                />
-              ))}
-            </div>
-          </section>
-        ))}
+      {!isLoading && !loadError && (
+        <section className="group-section">
+          <h2>All keys ({filteredPaths.length})</h2>
+          <div className="group-content">
+            {filteredPaths.map((path) => (
+              <FieldEditor
+                key={path}
+                path={path}
+                field={fields[path]}
+                onChange={updateValue}
+                onSave={() => saveField(path)}
+                disabled={isSavingAll}
+                dirty={isDirty(fields[path])}
+              />
+            ))}
+          </div>
+        </section>
+      )}
     </main>
   )
 }
