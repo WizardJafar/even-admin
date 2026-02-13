@@ -7,11 +7,11 @@ Simple Vite + React admin SPA for editing `site.i18n.ru` and `site.i18n.uz` valu
 - Opens directly to the admin page (no auth, no routing).
 - Loads translations from `GET /site`.
 - Flattens nested keys dynamically (`services.items.0`, `heroStats.0.label`, etc.).
-- Edits RU and UZ string values side-by-side.
+- Edits RU and UZ values side-by-side for every key (string/number/boolean/null).
 - Save per key (`PATCH /site` for both RU/UZ when changed).
 - Save All changed fields sequentially.
 - Search by path or value.
-- Grouped sections by first path segment.
+- Simplified flat list of all keys for faster editing.
 
 ## API contract
 
@@ -36,3 +36,9 @@ If your backend is elsewhere, create `.env`:
 ```bash
 VITE_API_BASE=https://even-backend-f3n6.onrender.com
 ```
+
+
+## UI stack
+
+- DaisyUI (includes Tailwind utility classes) is loaded via CDN in `index.html`.
+- Components in `src/AdminPage.jsx` use Tailwind/DaisyUI classes (`card`, `btn`, `input`, `alert`, etc.).
