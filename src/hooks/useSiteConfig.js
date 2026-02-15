@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo, useCallback } from "react";
 
 function getApiBase() {
   if (typeof window === "undefined") return "";
@@ -12,49 +12,53 @@ export function useSiteConfig() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
-  const API_BASE = getApiBase();
+  // чтобы не пересоздавался на каждый ререндер
+  const API_BASE = useMemo(() => getApiBase(), []);
 
-  // --- GET данные ---
-  const fetchSite = async () => {
+  const fetchSite = useCallback(async () => {
     try {
       setLoading(true);
       setError("");
-      const res = await fetch(`${API_BASE}/site`);
+      const res = await fetch(`${API_BASE}/site`, { cache: "no-store" });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const data = await res.json();
       setSite(data);
+      return data;
     } catch (err) {
-      setError(err.message || "Ошибка загрузки");
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  // --- POST/PUT данные ---
-  const saveSite = async (newData) => {
-    try {
-      setLoading(true);
-      setError("");
-      const res = await fetch(`${API_BASE}/site`, {
-        method: "PUT", // или POST, если сервер ожидает POST
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(newData),
-      });
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      const updated = await res.json();
-      setSite(updated);
-      return updated;
-    } catch (err) {
-      setError(err.message || "Ошибка сохранения");
+      setError(err?.message || "Ошибка загрузки");
       throw err;
     } finally {
       setLoading(false);
     }
-  };
+  }, [API_BASE]);
+
+  const saveSite = useCallback(
+    async (newData) => {
+      try {
+        setLoading(true);
+        setError("");
+        const res = await fetch(`${API_BASE}/site`, {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(newData),
+        });
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const updated = await res.json();
+        setSite(updated);
+        return updated;
+      } catch (err) {
+        setError(err?.message || "Ошибка сохранения");
+        throw err;
+      } finally {
+        setLoading(false);
+      }
+    },
+    [API_BASE]
+  );
 
   useEffect(() => {
     fetchSite();
-  }, []);
+  }, [fetchSite]);
 
-  return { site, loading, error, fetchSite, saveSite };
+  return { site, loading, error, fetchSite, saveSite, API_BASE };
 }
